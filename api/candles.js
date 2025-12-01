@@ -1,31 +1,29 @@
+// /api/candles.js
 export default async function handler(req, res) {
-    const { symbol, resolution = "D" } = req.query;
-    const key = process.env.FINNHUB_KEY;
+  try {
+    const { symbol = "AAPL", interval = "1d", range = "1mo" } = req.query;
 
-    if (!symbol) {
-        return res.status(400).json({ error: "Missing symbol" });
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!data.chart || data.chart.error) {
+      return res.status(400).json({ error: "Invalid symbol or missing data." });
     }
 
-    // Finnhub requires UNIX timestamps
-    const now = Math.floor(Date.now() / 1000);  // current time
-    const from = now - 60 * 60 * 24 * 365;      // past 1 year of data
+    const result = data.chart.result[0];
 
-    const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${now}&token=${key}`;
+    return res.status(200).json({
+      timestamps: result.timestamp,
+      open: result.indicators.quote[0].open,
+      high: result.indicators.quote[0].high,
+      low: result.indicators.quote[0].low,
+      close: result.indicators.quote[0].close,
+      volume: result.indicators.quote[0].volume
+    });
 
-    try {
-        const data = await fetch(url).then(r => r.json());
-
-        // Finnhub returns s = "no_data" if no candles exist
-        if (data.s === "no_data" || !data.c) {
-            return res.status(404).json({ error: "No candle data for this symbol" });
-        }
-
-        return res.status(200).json(data);
-
-    } catch (err) {
-        console.error("Candle fetch error:", err);
-        return res.status(500).json({ error: "Server error" });
-    }
+  } catch (e) {
+    return res.status(500).json({ error: e.toString() });
+  }
 }
-
-
