@@ -1,24 +1,26 @@
+// /api/quote.js
 export default async function handler(req, res) {
-  res.setHeader("Cache-Control", "s-maxage=20, stale-while-revalidate=40");
-
-  const { symbol } = req.query;
-  const key = process.env.FINNHUB_KEY;
-
-  if (!symbol) {
-    return res.status(400).json({ error: "Symbol is required" });
-  }
-
-  const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(
-    symbol
-  )}&token=${key}`;
-
   try {
+    const { symbol = "AAPL" } = req.query;
+
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`;
     const response = await fetch(url);
     const data = await response.json();
-    return res.status(200).json(data);
-  } catch (err) {
-    console.error("quote error:", err);
-    return res.status(500).json({ error: "Quote fetch failed" });
+
+    const q = data.quoteResponse.result[0];
+
+    return res.status(200).json({
+      symbol: q.symbol,
+      price: q.regularMarketPrice,
+      change: q.regularMarketChange,
+      percent: q.regularMarketChangePercent,
+      high: q.regularMarketDayHigh,
+      low: q.regularMarketDayLow,
+      open: q.regularMarketOpen,
+      previousClose: q.regularMarketPreviousClose
+    });
+
+  } catch (e) {
+    return res.status(500).json({ error: e.toString() });
   }
 }
-
